@@ -2,7 +2,7 @@ import pygame
 
 import settings
 from car.my_car import MyCar
-from car.obstacle_car import ObstacleCar
+from car.opponent_car_manager import OpponentCarManager
 from road.road_drawer import RoadDrawer
 from screen.screen_text import ScreenText
 from sensor.front_distance_sensor import FrontDistanceSensor
@@ -23,11 +23,7 @@ class GameManager:
         self.distance_font = pygame.font.SysFont(None, settings.DISTANCE_TEXT_SIZE)
 
         self.my_car = MyCar()
-        self.obstacle_car = ObstacleCar(
-            settings.OBSTACLE_CAR_LANE_INDEX,
-            settings.OBSTACLE_CAR_WORLD_Y,
-        )
-        self.obstacle_cars = (self.obstacle_car,)
+        self.opponent_car_manager = OpponentCarManager()
         self.road_drawer = RoadDrawer()
         self.front_distance_sensor = FrontDistanceSensor()
         self.screen_text = ScreenText(self.distance_font)
@@ -43,7 +39,12 @@ class GameManager:
             delta_time = min(delta_time, settings.MAX_DELTA_TIME)
 
             self.handle_events()
+            self.opponent_car_manager.update(delta_time)
             self.handle_keyboard_input(delta_time)
+            self.opponent_car_manager.maintain_traffic(
+                self.my_car,
+                self.road_scroll_y,
+            )
             self.update_screen()
 
         pygame.quit()
@@ -66,7 +67,7 @@ class GameManager:
         self.road_scroll_y = self.my_car.move_by_keyboard(
             pressed_keys,
             self.front_distance_sensor,
-            self.obstacle_car,
+            self.opponent_car_manager.get_cars(),
             self.road_scroll_y,
             delta_time,
         )
@@ -76,15 +77,13 @@ class GameManager:
 
         sensor_states = self.front_distance_sensor.calculate_all(
             self.my_car,
-            self.obstacle_cars,
+            self.opponent_car_manager.get_cars(),
             self.road_scroll_y,
         )
 
         self.screen.fill(settings.GREEN_BACKGROUND)
         self.road_drawer.draw(self.screen, self.road_scroll_y)
-        for obstacle_car in self.obstacle_cars:
-            obstacle_car.draw(self.screen, self.road_scroll_y)
-
+        self.opponent_car_manager.draw(self.screen, self.road_scroll_y)
         self.my_car.draw(self.screen)
         self.front_distance_sensor.draw_all_sensor_lines(
             self.screen,

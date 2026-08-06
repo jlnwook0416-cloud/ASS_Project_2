@@ -25,24 +25,24 @@ class FrontDistanceSensor:
 
     DIRECTIONS = ("front", "left", "right", "rear")
 
-    def calculate_distance(self, my_car, obstacle_car, road_scroll_y):
+    def calculate_distance(self, my_car, obstacle_cars, road_scroll_y):
         """기존 전방 자동 정지 로직을 위한 전방 거리 계산입니다."""
 
         return self.calculate_distance_at_position(
             my_car.x,
             my_car.y,
-            obstacle_car,
+            obstacle_cars,
             road_scroll_y,
         )
 
-    def calculate_distance_at_position(self, car_x, car_y, obstacle_car, road_scroll_y):
-        """지정한 자동차 위치에서 앞 장애물까지의 빈 공간을 계산합니다."""
+    def calculate_distance_at_position(self, car_x, car_y, obstacle_cars, road_scroll_y):
+        """지정한 자동차 위치에서 가장 가까운 앞 상대 차량까지의 빈 공간을 계산합니다."""
 
         front_state = self.calculate_sensor_state_at_position(
             "front",
             car_x,
             car_y,
-            obstacle_car,
+            obstacle_cars,
             road_scroll_y,
         )
         return front_state.nearest_distance
@@ -152,11 +152,13 @@ class FrontDistanceSensor:
     def get_obstacle_world_rect(self, obstacle_car):
         """장애물 자동차의 월드 좌표 사각형을 만듭니다."""
 
+        width = getattr(obstacle_car, "width", settings.CAR_WIDTH)
+        height = getattr(obstacle_car, "height", settings.CAR_HEIGHT)
         return pygame.Rect(
             obstacle_car.x,
             obstacle_car.world_y,
-            settings.CAR_WIDTH,
-            settings.CAR_HEIGHT,
+            width,
+            height,
         )
 
     def calculate_direction_distance(
@@ -176,9 +178,11 @@ class FrontDistanceSensor:
         player_rear_world_y = player_world_y + settings.CAR_HEIGHT
 
         obstacle_left_x = obstacle_car.x
-        obstacle_right_x = obstacle_car.x + settings.CAR_WIDTH
+        obstacle_width = getattr(obstacle_car, "width", settings.CAR_WIDTH)
+        obstacle_height = getattr(obstacle_car, "height", settings.CAR_HEIGHT)
+        obstacle_right_x = obstacle_car.x + obstacle_width
         obstacle_front_world_y = obstacle_car.world_y
-        obstacle_rear_world_y = obstacle_car.world_y + settings.CAR_HEIGHT
+        obstacle_rear_world_y = obstacle_car.world_y + obstacle_height
 
         if direction == "front":
             distance = player_front_world_y - obstacle_rear_world_y

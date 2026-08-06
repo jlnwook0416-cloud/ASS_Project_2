@@ -77,7 +77,7 @@ class MyCar:
         self,
         pressed_keys,
         front_distance_sensor,
-        obstacle_car,
+        opponent_cars,
         road_scroll_y,
         delta_time,
     ):
@@ -91,12 +91,15 @@ class MyCar:
         side_direction = self.get_side_direction(is_moving_left, is_moving_right)
         side_distance = side_direction * settings.CAR_SIDE_SPEED * delta_time
         next_x = self.get_limited_x(self.x + side_distance)
+        if self.is_colliding_with_opponent(next_x, self.y, opponent_cars, road_scroll_y):
+            next_x = self.x
+            side_distance = 0
 
         front_distance_after_side_move = (
             front_distance_sensor.calculate_distance_at_position(
                 next_x,
                 self.y,
-                obstacle_car,
+                opponent_cars,
                 road_scroll_y,
             )
         )
@@ -115,14 +118,37 @@ class MyCar:
             forward_distance *= settings.CAR_DIAGONAL_SPEED_FACTOR
             side_distance *= settings.CAR_DIAGONAL_SPEED_FACTOR
             next_x = self.get_limited_x(self.x + side_distance)
+            if self.is_colliding_with_opponent(
+                next_x,
+                self.y,
+                opponent_cars,
+                road_scroll_y,
+            ):
+                next_x = self.x
+                side_distance = 0
 
         forward_distance = self.get_safe_forward_distance(
             forward_distance,
             next_x,
             front_distance_sensor,
-            obstacle_car,
+            opponent_cars,
             road_scroll_y,
         )
+        forward_distance = self.get_safe_reverse_distance(
+            forward_distance,
+            next_x,
+            front_distance_sensor,
+            opponent_cars,
+            road_scroll_y,
+        )
+        if self.is_colliding_after_forward_distance(
+            next_x,
+            forward_distance,
+            opponent_cars,
+            road_scroll_y,
+        ):
+            forward_distance = 0
+            self.forward_speed = 0
 
         self.x = next_x
         road_scroll_y = self.move_forward_distance(forward_distance, road_scroll_y)
@@ -194,7 +220,7 @@ class MyCar:
         forward_distance,
         next_x,
         front_distance_sensor,
-        obstacle_car,
+        opponent_cars,
         road_scroll_y,
     ):
         """앞차와 안전거리보다 가까워지는 전진 이동을 차단합니다."""
@@ -205,7 +231,7 @@ class MyCar:
         front_distance = front_distance_sensor.calculate_distance_at_position(
             next_x,
             self.y,
-            obstacle_car,
+            opponent_cars,
             road_scroll_y,
         )
 
@@ -222,6 +248,98 @@ class MyCar:
             return max_safe_forward_distance
 
         return forward_distance
+
+    def get_safe_reverse_distance(
+        self,
+        forward_distance,
+        next_x,
+        front_distance_sensor,
+        opponent_cars,
+        road_scroll_y,
+    ):
+        """뒤차와 안전거리보다 가까워지는 후진 이동을 차단합니다."""
+
+        if forward_distance >= 0:
+            return forward_distance
+
+        rear_state = front_distance_sensor.calculate_sensor_state_at_position(
+            "rear",
+            next_x,
+            self.y,
+            opponent_cars,
+            road_scroll_y,
+        )
+        rear_distance = rear_state.nearest_distance
+        if rear_distance is None:
+            return forward_distance
+
+        max_safe_reverse_distance = rear_distance - settings.STOP_DISTANCE
+        if max_safe_reverse_distance <= 0:
+            self.forward_speed = 0
+            return 0
+
+        reverse_distance = abs(forward_distance)
+        if reverse_distance > max_safe_reverse_distance:
+            self.forward_speed = 0
+            return -max_safe_reverse_distance
+
+        return forward_distance
+
+    def is_colliding_with_opponent(
+        self,
+        car_x,
+        car_y,
+        opponent_cars,
+        road_scroll_y,
+    ):
+        """지정 위치의 플레이어 차량이 상대 차량과 겹치는지 확인합니다."""
+
+        player_rect = pygame.Rect(
+            car_x,
+            car_y - road_scroll_y,
+            settings.CAR_WIDTH,
+            settings.CAR_HEIGHT,
+        )
+        return self.is_player_rect_colliding_with_opponent(player_rect, opponent_cars)
+
+    def is_colliding_after_forward_distance(
+        self,
+        next_x,
+        forward_distance,
+        opponent_cars,
+        road_scroll_y,
+    ):
+        """전후 이동 후의 월드 좌표가 상대 차량과 겹치는지 확인합니다."""
+
+        player_world_y = self.y - road_scroll_y - forward_distance
+        player_rect = pygame.Rect(
+            next_x,
+            player_world_y,
+            settings.CAR_WIDTH,
+            settings.CAR_HEIGHT,
+        )
+        return self.is_player_rect_colliding_with_opponent(player_rect, opponent_cars)
+
+    def is_player_rect_colliding_with_opponent(self, player_rect, opponent_cars):
+        """플레이어 월드 사각형과 상대 차량 목록의 겹침 여부를 계산합니다."""
+
+        for opponent_car in self.get_opponent_cars(opponent_cars):
+            opponent_rect = pygame.Rect(
+                opponent_car.x,
+                opponent_car.world_y,
+                getattr(opponent_car, "width", settings.CAR_WIDTH),
+                getattr(opponent_car, "height", settings.CAR_HEIGHT),
+            )
+            if player_rect.colliderect(opponent_rect):
+                return True
+        return False
+
+    def get_opponent_cars(self, opponent_cars):
+        """단일 차량 또는 차량 목록을 같은 방식으로 순회합니다."""
+
+        if isinstance(opponent_cars, (list, tuple)):
+            return opponent_cars
+        return (opponent_cars,)
 
     def move_forward_distance(self, forward_distance, road_scroll_y):
         """전후 이동 거리를 차량 위치 또는 도로 스크롤에 반영합니다."""
