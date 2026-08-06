@@ -9,10 +9,20 @@ class FrontDistanceSensor:
     def calculate_distance(self, my_car, obstacle_car, road_scroll_y):
         """내 차 앞쪽과 장애물 자동차 뒤쪽 사이의 빈 공간을 계산합니다."""
 
-        player_world_y = my_car.y - road_scroll_y
+        return self.calculate_distance_at_position(
+            my_car.x,
+            my_car.y,
+            obstacle_car,
+            road_scroll_y,
+        )
 
-        player_left_x = my_car.x
-        player_right_x = my_car.x + settings.CAR_WIDTH
+    def calculate_distance_at_position(self, car_x, car_y, obstacle_car, road_scroll_y):
+        """지정한 자동차 위치에서 앞 장애물까지의 빈 공간을 계산합니다."""
+
+        player_world_y = car_y - road_scroll_y
+
+        player_left_x = car_x
+        player_right_x = car_x + settings.CAR_WIDTH
         obstacle_left_x = obstacle_car.x
         obstacle_right_x = obstacle_car.x + settings.CAR_WIDTH
 

@@ -38,10 +38,12 @@ class GameManager:
         """창이 닫힐 때까지 게임 루프를 실행합니다."""
 
         while self.is_running:
+            delta_time = self.clock.tick(settings.FPS) / 1000
+            delta_time = min(delta_time, settings.MAX_DELTA_TIME)
+
             self.handle_events()
-            self.handle_keyboard_input()
+            self.handle_keyboard_input(delta_time)
             self.update_screen()
-            self.clock.tick(settings.FPS)
 
         pygame.quit()
 
@@ -55,20 +57,17 @@ class GameManager:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.is_running = False
 
-    def handle_keyboard_input(self):
+    def handle_keyboard_input(self, delta_time):
         """현재 누르고 있는 키를 확인하고 내 차를 움직입니다."""
 
         pressed_keys = pygame.key.get_pressed()
-        front_distance_before_move = self.front_distance_sensor.calculate_distance(
-            self.my_car,
-            self.obstacle_car,
-            self.road_scroll_y,
-        )
 
         self.road_scroll_y = self.my_car.move_by_keyboard(
             pressed_keys,
-            front_distance_before_move,
+            self.front_distance_sensor,
+            self.obstacle_car,
             self.road_scroll_y,
+            delta_time,
         )
 
     def update_screen(self):
