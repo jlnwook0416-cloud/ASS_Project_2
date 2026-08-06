@@ -27,6 +27,7 @@ class GameManager:
             settings.OBSTACLE_CAR_LANE_INDEX,
             settings.OBSTACLE_CAR_WORLD_Y,
         )
+        self.obstacle_cars = (self.obstacle_car,)
         self.road_drawer = RoadDrawer()
         self.front_distance_sensor = FrontDistanceSensor()
         self.screen_text = ScreenText(self.distance_font)
@@ -73,24 +74,23 @@ class GameManager:
     def update_screen(self):
         """도로, 자동차, 센서, 글자를 순서대로 그리고 화면을 갱신합니다."""
 
-        front_distance = self.front_distance_sensor.calculate_distance(
+        sensor_states = self.front_distance_sensor.calculate_all(
             self.my_car,
-            self.obstacle_car,
+            self.obstacle_cars,
             self.road_scroll_y,
         )
 
         self.screen.fill(settings.GREEN_BACKGROUND)
         self.road_drawer.draw(self.screen, self.road_scroll_y)
-        self.obstacle_car.draw(self.screen, self.road_scroll_y)
-
-        if self.front_distance_sensor.has_front_obstacle(front_distance):
-            self.front_distance_sensor.draw_sensor_line(
-                self.screen,
-                self.my_car,
-                self.obstacle_car,
-                self.road_scroll_y,
-            )
+        for obstacle_car in self.obstacle_cars:
+            obstacle_car.draw(self.screen, self.road_scroll_y)
 
         self.my_car.draw(self.screen)
-        self.screen_text.draw_distance_text(self.screen, front_distance)
+        self.front_distance_sensor.draw_all_sensor_lines(
+            self.screen,
+            self.my_car,
+            sensor_states,
+            self.road_scroll_y,
+        )
+        self.screen_text.draw_distance_text(self.screen, sensor_states)
         pygame.display.flip()
