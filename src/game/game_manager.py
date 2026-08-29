@@ -4,6 +4,7 @@ import settings
 from car.my_car import MyCar
 from car.opponent_car_manager import OpponentCarManager
 from road.road_drawer import RoadDrawer
+from road.traffic_light import create_default_traffic_lights
 from screen.screen_text import ScreenText
 from sensor.front_distance_sensor import FrontDistanceSensor
 
@@ -25,6 +26,7 @@ class GameManager:
         self.my_car = MyCar()
         self.opponent_car_manager = OpponentCarManager()
         self.road_drawer = RoadDrawer()
+        self.traffic_lights = create_default_traffic_lights()
         self.front_distance_sensor = FrontDistanceSensor()
         self.screen_text = ScreenText(self.distance_font)
 
@@ -40,6 +42,7 @@ class GameManager:
 
             self.handle_events()
             self.opponent_car_manager.update(delta_time)
+            self.update_traffic_lights(delta_time)
             self.handle_keyboard_input(delta_time)
             self.opponent_car_manager.maintain_traffic(
                 self.my_car,
@@ -70,7 +73,14 @@ class GameManager:
             self.opponent_car_manager.get_cars(),
             self.road_scroll_y,
             delta_time,
+            self.traffic_lights,
         )
+
+    def update_traffic_lights(self, delta_time):
+        """모든 신호등을 실제 경과 시간 기준으로 갱신합니다."""
+
+        for traffic_light in self.traffic_lights:
+            traffic_light.update(delta_time)
 
     def update_screen(self):
         """도로, 자동차, 센서, 글자를 순서대로 그리고 화면을 갱신합니다."""
@@ -83,6 +93,7 @@ class GameManager:
 
         self.screen.fill(settings.GREEN_BACKGROUND)
         self.road_drawer.draw(self.screen, self.road_scroll_y)
+        self.draw_traffic_lights()
         self.opponent_car_manager.draw(self.screen, self.road_scroll_y)
         self.my_car.draw(self.screen)
         self.front_distance_sensor.draw_all_sensor_lines(
@@ -93,3 +104,10 @@ class GameManager:
         )
         self.screen_text.draw_distance_text(self.screen, sensor_states)
         pygame.display.flip()
+
+    def draw_traffic_lights(self):
+        """정지선과 신호등을 월드 좌표 기준으로 그립니다."""
+
+        for traffic_light in self.traffic_lights:
+            traffic_light.stop_line.draw(self.screen, self.road_scroll_y)
+            traffic_light.draw(self.screen, self.road_scroll_y)

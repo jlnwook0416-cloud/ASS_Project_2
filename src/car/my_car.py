@@ -80,6 +80,7 @@ class MyCar:
         opponent_cars,
         road_scroll_y,
         delta_time,
+        traffic_lights=None,
     ):
         """키보드 입력에 맞춰 자동차를 움직이고 도로 스크롤 값을 돌려줍니다."""
 
@@ -103,7 +104,15 @@ class MyCar:
                 road_scroll_y,
             )
         )
-        can_move_forward = not self.is_obstacle_too_close(front_distance_after_side_move)
+        can_move_forward = (
+            not self.is_obstacle_too_close(front_distance_after_side_move)
+            and not self.is_blocked_by_traffic_light(
+                next_x,
+                self.y,
+                road_scroll_y,
+                traffic_lights,
+            )
+        )
 
         self.update_forward_speed(
             is_moving_forward,
@@ -134,6 +143,12 @@ class MyCar:
             opponent_cars,
             road_scroll_y,
         )
+        forward_distance = self.get_safe_traffic_light_forward_distance(
+            forward_distance,
+            next_x,
+            road_scroll_y,
+            traffic_lights,
+        )
         forward_distance = self.get_safe_reverse_distance(
             forward_distance,
             next_x,
@@ -155,6 +170,59 @@ class MyCar:
 
         self.limit_position()
         return road_scroll_y
+
+    def is_blocked_by_traffic_light(
+        self,
+        car_x,
+        car_y,
+        road_scroll_y,
+        traffic_lights,
+    ):
+        """정지 신호의 정지선에 이미 도달했는지 확인합니다."""
+
+        for traffic_light in self.get_traffic_lights(traffic_lights):
+            if traffic_light.is_stopping_player_now(car_x, car_y, road_scroll_y):
+                return True
+        return False
+
+    def get_safe_traffic_light_forward_distance(
+        self,
+        forward_distance,
+        next_x,
+        road_scroll_y,
+        traffic_lights,
+    ):
+        """정지 신호가 있으면 정지선을 넘지 않도록 전진 이동을 제한합니다."""
+
+        if forward_distance <= 0:
+            return forward_distance
+
+        safe_forward_distance = forward_distance
+        for traffic_light in self.get_traffic_lights(traffic_lights):
+            safe_forward_distance = traffic_light.get_safe_forward_distance(
+                next_x,
+                self.y,
+                road_scroll_y,
+                safe_forward_distance,
+            )
+
+        if safe_forward_distance <= 0:
+            self.forward_speed = 0
+            return 0
+
+        if safe_forward_distance < forward_distance:
+            self.forward_speed = 0
+
+        return safe_forward_distance
+
+    def get_traffic_lights(self, traffic_lights):
+        """신호등이 없거나 단일 객체여도 같은 방식으로 순회합니다."""
+
+        if traffic_lights is None:
+            return ()
+        if isinstance(traffic_lights, (list, tuple)):
+            return traffic_lights
+        return (traffic_lights,)
 
     def update_forward_speed(
         self,
